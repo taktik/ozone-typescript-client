@@ -1,6 +1,8 @@
 import {fsm} from "typescript-state-machine";
 import * as log4javascript from "log4javascript";
 import {httpclient} from "typescript-http-client";
+import {Item, SearchRequest, Query} from 'ozone-type'
+
 
 export namespace OzoneClient {
 	import AssumeStateIsNot = fsm.AssumeStateIsNot;
@@ -157,6 +159,46 @@ export namespace OzoneClient {
          */
 		send(message: Message): void;
 
+
+		// BEGIN HIGH LEVEL CALLS
+
+		/*
+			Get a client for working with items of the given type
+		 */
+		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T>;
+	}
+
+	export type UUID = string
+
+	export interface SearchResults<T extends Item> {
+		id?: number;
+
+		total?: number;
+
+		size?: number;
+
+		results?: T[];
+
+	}
+
+	export interface ItemClient<T extends Item> {
+		save(item: Partial<T>): Promise<T>;
+
+		saveAll(items: Partial<T>[]): Promise<T[]>;
+
+		findOne(id: UUID): Promise<T|null>;
+
+		findAll(): Promise<T[]>;
+
+		findAllByIds(ids: UUID[]): Promise<T[]>;
+
+		search(searchRequest: SearchRequest): Promise<SearchResults<T>>
+
+		count(query?: Query): Promise<number>;
+
+		deleteById(id: UUID, permanent?: boolean): Promise<UUID|null>
+
+		deleteByIds(ids: UUID[], permanent?: boolean): Promise<UUID[]>
 	}
 
 	interface OzoneClientInternals extends OzoneClient {
@@ -681,6 +723,74 @@ export namespace OzoneClient {
 			// Set some sensible default to all requests
 			this._httpClient.addFilter(new DefaultsOptions());
 		}
+
+		itemClient<T extends Item>(typeIdentifier: string): OzoneClient.ItemClient<T> {
+			const client = this;
+			const baseURL = this._config.ozoneURL;
+			return new class implements ItemClient<T> {
+				async count(query?: Query): Promise<number> {
+					const results = await this.search({
+						query:query,
+						size:0
+					});
+					return results.total || 0;
+				}
+
+				deleteById(id: UUID, permanent?: boolean): Promise<UUID | null> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/${id}`)
+						.setMethod("DELETE");
+					return client.call<UUID>(request);
+				}
+
+				deleteByIds(ids: UUID[], permanent?: boolean): Promise<UUID[]> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkDelete`)
+						.setMethod("POST")
+						.setBody();
+					return client.call<UUID[]>(request);
+				}
+
+				async findAll(): Promise<T[]> {
+					const results = await this.search({
+						size: 10_000
+					});
+					return results.results || [];
+				}
+
+				findAllByIds(ids: UUID[]): Promise<T[]> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkGet`)
+						.setMethod("POST")
+						.setBody(ids);
+					return client.call<T[]>(request);
+				}
+
+				findOne(id: UUID): Promise<T | null> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/${id}`)
+						.setMethod("GET");
+					return client.call<T>(request);
+				}
+
+				save(item: Partial<T>): Promise<T> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}`)
+						.setMethod("POST")
+						.setBody(item);
+					return client.call<T>(request);
+				}
+
+				saveAll(items: Partial<T>[]): Promise<T[]> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkSave`)
+						.setMethod("POST")
+						.setBody(items);
+					return client.call<T[]>(request);
+				}
+
+				search(searchRequest: SearchRequest): Promise<SearchResults<T>> {
+					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/search`)
+						.setMethod("POST")
+						.setBody(searchRequest);
+					return client.call<SearchResults<T>>(request);
+				}
+			};
+		}
 	}
 
 	function addHeader(call: Request, name: string, value: string) {
@@ -764,7 +874,7 @@ export namespace OzoneClient {
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			try {
 				const response = await filterChain.doFilter(call);
-				const principalId = response.headers["Ozone-Principal-id"];
+				const principalId = response.headers["ozone-principal-id"];
 				if (principalId && this.client.authInfo && principalId == this.client.authInfo.principalClass) {
 					this.sessionCheckCallBack(Date.now());
 				}
@@ -772,7 +882,7 @@ export namespace OzoneClient {
 			} catch (e) {
 				const response = e as Response<any>;
 				if ((response.status == 403 || response.status == 401)
-					&& !response.headers["Ozone-Principal-id"]
+					&& !response.headers["ozone-principal-id"]
 					&& this.client.isAuthenticated) {
 					try {
 						// TODO AB Protect this call to avoid multiple login in //
