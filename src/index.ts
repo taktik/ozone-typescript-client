@@ -375,10 +375,13 @@ export namespace OzoneClient {
 			this.destroyWs();
 			try {
 				this._authInfo = undefined;
+                this.log.debug("Authenticating");
 				this._authInfo = await this.config.ozoneCredentials!.authenticate(this.config.ozoneURL);
+                this.log.debug(`Authenticated with authInfo : ${this._authInfo}`);
 			} catch (e) {
-				const response = e as Response<AuthInfo>;
-				this._lastFailedLogin = e;
+                const response = e as Response<AuthInfo>;
+                this.log.debug(`Authentication error : code ${response.status}`);
+                this._lastFailedLogin = e;
 				if (response.status >= 400 && response.status < 500) {
 					// Invalid credentials
 					this.setState(states.AUTHENTICATION_ERROR);
@@ -798,6 +801,7 @@ export namespace OzoneClient {
 			call.headers = {};
 		}
 		call.headers[name] = value;
+		log.trace(`AddHeader called with name=${name} and value=${value}. Headers are now ${JSON.stringify(call.headers)}`);
 	}
 
 	export abstract class OzoneCredentials {
@@ -912,6 +916,7 @@ export namespace OzoneClient {
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			const authInfo = this.authProvider();
 			if (authInfo) {
+                log.trace(`SessionFilter : authInfo = ${authInfo}, class=${authInfo.constructor.name}, sessionId=${authInfo.sessionId}, sessionId=${authInfo["sessionId"]}`);
 				addHeader(call, "Ozone-Session-Id", authInfo.sessionId);
 			}
 			return filterChain.doFilter(call);
