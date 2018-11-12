@@ -6,9 +6,8 @@ import {Item, SearchRequest, Query} from 'ozone-type'
 
 export namespace OzoneClient {
 	import AssumeStateIsNot = fsm.AssumeStateIsNot;
-	const log = log4javascript.getLogger("ozone.client");
-
 	import Transitions = fsm.Transitions;
+
 	import State = fsm.State;
 	import ListenerRegistration = fsm.ListenerRegistration;
 	import StateMachine = fsm.StateMachine;
@@ -21,6 +20,8 @@ export namespace OzoneClient {
 	import newHttpClient = httpclient.newHttpClient;
 	import FilterChain = httpclient.FilterChain;
 
+	const log = log4javascript.getLogger("ozone.client");
+	const DEFAULT_TIMEOUT = 5000;
 
 	export class ClientState extends State {
 	}
@@ -137,13 +138,6 @@ export namespace OzoneClient {
 		callForResponse<T>(request: Request): Promise<Response<T>>;
 		call<T>(request: Request): Promise<T>;
 
-
-		/*
-			Wait for state changes.
-		 */
-		waitUntilLeft(state: ClientState): Promise<ClientState>;
-		waitUntilEntered(state: ClientState): Promise<ClientState>;
-
 		/*
             Register a message listener.
 
@@ -166,6 +160,17 @@ export namespace OzoneClient {
 			Get a client for working with items of the given type
 		 */
 		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T>;
+
+		/*
+			Insert the current Ozone session ID in the given URL ("/dsid=...).
+			This call
+			Throws an error if there is no session available.
+			The given string may or may not contain the host part.
+			Example input strings :
+			"/rest/v3/blob" ->
+			"https://taktik.io/rest/v2/media/view/org.taktik.filetype.original/123"
+		 */
+		insertSessionIdInURL(url:string):string;
 	}
 
 	export type UUID = string
@@ -699,8 +704,6 @@ export namespace OzoneClient {
 			this.onEnterState(states.STARTED, () => this.loginIfPossible());
 			// Perform login when entering state "AUTHENTICATING"
 			this.onEnterState(states.AUTHENTICATING, () => this.login());
-			// Connect to message server when entering state "CONNECTING"
-			this.onEnterState(states.WS_CONNECTING, () => this.connect());
 			// Auto re-authenticate to Ozone in case of error
 			this.onEnterState(states.NETWORK_OR_SERVER_ERROR, () => this.createAutoReAuthTimer());
 			this.onLeaveState(states.NETWORK_OR_SERVER_ERROR, () => this.clearAutoReAuthTimer());
@@ -708,6 +711,8 @@ export namespace OzoneClient {
 			this.onEnterState(states.AUTHENTICATION_ERROR, () => this.clearAutoReAuthRetryTimestamps());
 			// Auto-connect WebSocket when authenticated to Ozone
 			this.onEnterState(states.AUTHENTICATED, () => this.connectIfPossible());
+			// Connect to message server when entering state "CONNECTING"
+			this.onEnterState(states.WS_CONNECTING, () => this.connect());
 			// WS Ping KeepAlive
 			this.onEnterState(states.WS_CONNECTED, () => this.installWSPingKeepAlive());
 			this.onLeaveState(states.WS_CONNECTED, () => this.destroyWSPingKeepAlive());
@@ -724,10 +729,10 @@ export namespace OzoneClient {
 			// Add Ozone session header to all requests
 			this._httpClient.addFilter(new SessionFilter(() => this._authInfo));
 			// Set some sensible default to all requests
-			this._httpClient.addFilter(new DefaultsOptions());
+			this._httpClient.addFilter(new DefaultsOptions(this._config.defaultTimeout || DEFAULT_TIMEOUT));
 		}
 
-		itemClient<T extends Item>(typeIdentifier: string): OzoneClient.ItemClient<T> {
+		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T> {
 			const client = this;
 			const baseURL = this._config.ozoneURL;
 			return new class implements ItemClient<T> {
@@ -794,6 +799,11 @@ export namespace OzoneClient {
 				}
 			};
 		}
+
+		insertSessionIdInURL(url: string): string {
+			return "";
+		}
+
 	}
 
 	function addHeader(call: Request, name: string, value: string) {
@@ -866,8 +876,8 @@ export namespace OzoneClient {
 		ozoneInstanceId?: string;
 		ozoneCredentials?: OzoneCredentials
 		webSocketsURL?: string;
+		defaultTimeout?: number;
 	}
-
 
 	/*
 		Try to transparently re-authenticate and retry the call if we received a 403 or 401.
@@ -885,8 +895,14 @@ export namespace OzoneClient {
 				return response;
 			} catch (e) {
 				const response = e as Response<any>;
-				if ((response.status == 403 || response.status == 401)
+				// Try to detect if the session needs to be refreshed
+				if (
+					// Only try to re-authenticate if we receive a 401 or 403 status code
+					(response.status == 403 || response.status == 401)
+					// If we receive a principal id, it means we are still authenticated with a valid session, so there is no need
+					// to try to re-authenticate
 					&& !response.headers["ozone-principal-id"]
+					// Only try to re-authenticate if we are already authenticated
 					&& this.client.isAuthenticated) {
 					try {
 						// TODO AB Protect this call to avoid multiple login in //
@@ -898,7 +914,7 @@ export namespace OzoneClient {
 						// Retry the call
 						return await filterChain.doFilter(call);
 					} catch (e) {
-						// TODO AB set state to authentication error in case of login error?
+						// TODO AB Maybe : set state to authentication error in case of login error?
 						throw e;
 					}
 				} else {
@@ -927,19 +943,17 @@ export namespace OzoneClient {
 		Add sensible defaults to requests
 	 */
 	class DefaultsOptions implements Filter {
+		private readonly defaultTimeout:number;
+
+		constructor(defaultTimeout: number) {
+			this.defaultTimeout = defaultTimeout;
+		}
+
 		async doFilter(request: Request, filterChain: FilterChain): Promise<Response<any>> {
-			if (!request.responseType) {
-				request.responseType = 'json';
-			}
-			if (!request.contentType) {
-				request.contentType = 'application/json; charset=UTF-8';
-			}
-			if (!request.timeout) {
-				request.timeout = 30000;
+			if (!request.timeout || request.timeout>this.defaultTimeout) {
+				request.timeout = this.defaultTimeout;
 			}
 			return filterChain.doFilter(request);
 		}
 	}
-
-
 }
