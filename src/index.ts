@@ -800,7 +800,13 @@ export namespace OzoneClient {
     }
 
     insertSessionIdInURL (url: string): string {
-      return ''
+      if (!url.startsWith(this.config.ozoneURL)) {
+        throw new Error(`insertSessionIdInURL : Given url should start with base url ${this.config.ozoneURL}`)
+      }
+      if (!this.authInfo) {
+        throw new Error(`insertSessionIdInURL : There is no valid session`)
+      }
+      return `${this.config.ozoneURL}/dsid=${this.authInfo.sessionId}${url.substring(this.config.ozoneURL.length)}`
     }
 
   }
