@@ -1,35 +1,35 @@
 {
-  "name": "ozone-typescript-client",
-  "version": "0.9.9",
-  "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/taktik/ozone-typescript-client.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/taktik/ozone-typescript-client/issues"
-  },
-  "scripts": {
-    "prepublish": "npm run build",
-    "build": "npm run tslint && tsc",
-    "tslint": "tslint src/*"
-  },
-  "homepage": "https://github.com/taktik/ozone-typescript-client#readme",
-  "dependencies": {
-    "log4javascript": "^1.4.15",
-    "typescript-state-machine": "^0.9.1",
-    "typescript-http-client": "^0.9.2",
-    "ozone-type": "^4.0.1"
-  },
-  "devDependencies": {
-    "tslint": "^5.11.0",
-    "tslint-config-standard": "^8.0.1",
-    "typescript": "^3.1.6",
-    "typescript-eslint-parser": "^20.1.1"
-  }
+	"name": "ozone-typescript-client",
+	"version": "0.9.10",
+	"description": "",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/taktik/ozone-typescript-client.git"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"bugs": {
+		"url": "https://github.com/taktik/ozone-typescript-client/issues"
+	},
+	"scripts": {
+		"prepublish": "npm run build",
+		"build": "npm run tslint && tsc",
+		"tslint": "tslint src/*"
+	},
+	"homepage": "https://github.com/taktik/ozone-typescript-client#readme",
+	"dependencies": {
+		"log4javascript": "^1.4.15",
+		"typescript-state-machine": "^0.9.2",
+		"typescript-http-client": "^0.9.3",
+		"ozone-type": "^4.0.1"
+	},
+	"devDependencies": {
+		"tslint": "^5.11.0",
+		"tslint-config-standard": "^8.0.1",
+		"typescript": "^3.1.6",
+		"typescript-eslint-parser": "^20.1.1"
+	}
 }
