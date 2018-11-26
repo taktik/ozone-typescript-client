@@ -22,6 +22,8 @@ export namespace OzoneClient {
 	const log = log4javascript.getLogger('ozone.client')
 	const DEFAULT_TIMEOUT = 5000
 
+	type Message = any
+
 	export class ClientState extends State {
 	}
 
@@ -85,11 +87,11 @@ export namespace OzoneClient {
 			"AUTHENTICATED" -> "NETWORK_OR_SERVER_ERROR"
 			"AUTHENTICATED" -> "WS_CONNECTING"
 		}
-		*/
+	*/
 
 	/*
-			Main interface for the Ozone Client
-		*/
+		Main interface for the Ozone Client
+	*/
 	export interface OzoneClient extends StateMachine<ClientState> {
 
 		/* Get the client config */
@@ -102,72 +104,72 @@ export namespace OzoneClient {
 		readonly lastFailedLogin?: Response<AuthInfo>
 
 		/*
-					Convenience props for getting the status of the client.
-				*/
+			Convenience props for getting the status of the client.
+		*/
 		readonly isAuthenticated: boolean
 		readonly isConnected: boolean
 
 		/*
-					Start the client. To be called once
-				*/
+			Start the client. To be called once
+		*/
 		start(): Promise<void>
 
 		/*
-					Update the WS URL.
-					The client will attempt to connect automatically to the new URL.
-				*/
+			Update the WS URL.
+			The client will attempt to connect automatically to the new URL.
+		*/
 		updateWSURL(url: string): void
 
 		/*
-					Update the Ozone credentials.
-					The client will attempt to login automatically.
-				*/
+			Update the Ozone credentials.
+			The client will attempt to login automatically.
+		*/
 		updateCredentials(ozoneCredentials: OzoneCredentials): void
 
 		/*
-					Stop the client. To be called once
-				*/
+			Stop the client. To be called once
+		*/
 		stop(): Promise<void>
 
 		/*
-					Perform a low-level call
-					All calls towards Ozone or other Microservices secured by Ozone should use those calls
-				*/
+			Perform a low-level call
+			All calls towards Ozone or other Microservices secured by Ozone should use those calls
+		*/
 		callForResponse<T>(request: Request): Promise<Response<T>>
 
 		call<T>(request: Request): Promise<T>
 
 		/*
-					Register a message listener.
+			Register a message listener.
 
-					@param messageType The type of message to register for
-					@param callBack The callBack that will be called
-				*/
-		onMessage(messageType: string, callBack: (message: Message) => void): ListenerRegistration
+			@param messageType The type of message to register for
+			@param callBack The callBack that will be called
+		*/
+		onMessage<M extends Message>(messageType: string, callBack: (message: M) => void): ListenerRegistration
 
 		onAnyMessage(callBack: (message: Message) => void): ListenerRegistration
 
 		/*
-					Send a message
-				*/
+			Send a message
+		*/
 		send(message: Message): void
 
 		// BEGIN HIGH LEVEL CALLS
 
 		/*
-					Get a client for working with items of the given type
-				 */
+			Get a client for working with items of the given type
+		*/
 		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T>
 
 		/*
-					Insert the current Ozone session ID in the given URL ("/dsid=...).
-					This call
-					Throws an error if there is no session available.
-					The given string may or may not contain the host part.
-					Example input strings :
-					"/rest/v3/blob" ->
-					"https://taktik.io/rest/v2/media/view/org.taktik.filetype.original/123"
-				 */
+			Insert the current Ozone session ID in the given URL ("/dsid=...).
+			This call
+			Throws an error if there is no session available.
+			The given string may or may not contain the host part.
+			Example input strings :
+			"/rest/v3/blob" ->
+			"https://taktik.io/rest/v2/media/view/org.taktik.filetype.original/123"
+		*/
 		insertSessionIdInURL(url: string): string
 	}
 
@@ -224,10 +226,6 @@ export namespace OzoneClient {
 		sessionId: string,
 	}
 
-	interface Message {
-		type: string
-	}
-
 	class Listener {
 		active: boolean = true
 	}
@@ -246,8 +244,8 @@ export namespace OzoneClient {
 	}
 
 	/*
-			Factory method
-		*/
+		Factory method
+	*/
 	export function newOzoneClient(config: ClientConfiguration) {
 		return new OzoneClientImpl(config)
 	}
@@ -291,8 +289,8 @@ export namespace OzoneClient {
 			return this.inState(states.WS_CONNECTED)
 		}
 
-		onMessage(messageType: string, callBack: (message: any) => void): ListenerRegistration {
-			return this.addMessageListener(callBack, messageType)
+		onMessage<M extends Message>(messageType: string, callBack: (message: M) => void): ListenerRegistration {
+			return this.addMessageListener(message => callBack(message as M), messageType)
 		}
 
 		onAnyMessage(callBack: (message: any) => void): ListenerRegistration {
@@ -488,8 +486,8 @@ export namespace OzoneClient {
 		}
 
 		/*
-					Login if we have credentials
-				*/
+			Login if we have credentials
+		*/
 		private loginIfPossible() {
 			if (this._config.ozoneCredentials) {
 				this.setState(states.AUTHENTICATING)
@@ -497,8 +495,8 @@ export namespace OzoneClient {
 		}
 
 		/*
-					Connect if we have an URL, ignore errors
-				*/
+			Connect if we have an URL, ignore errors
+		*/
 		private connectIfPossible() {
 			if (this._config.webSocketsURL) {
 				this.setState(states.WS_CONNECTING)
@@ -885,9 +883,9 @@ export namespace OzoneClient {
 	}
 
 	/*
-			Try to transparently re-authenticate and retry the call if we received a 403 or 401.
-			Also, update the last session check
-		*/
+		Try to transparently re-authenticate and retry the call if we received a 403 or 401.
+		Also, update the last session check
+	*/
 	class SessionRefreshFilter implements Filter {
 		constructor(readonly client: OzoneClientInternals, readonly sessionCheckCallBack: (lastCheck: number) => void) {}
 
@@ -931,8 +929,8 @@ export namespace OzoneClient {
 	}
 
 	/*
-			Add "Ozone-Session-Id" Header
-		*/
+		Add "Ozone-Session-Id" Header
+	*/
 	class SessionFilter implements Filter {
 		constructor(readonly authProvider: () => AuthInfo | undefined) {}
 
@@ -947,8 +945,8 @@ export namespace OzoneClient {
 	}
 
 	/*
-			Add sensible defaults to requests
-		*/
+		Add sensible defaults to requests
+	*/
 	class DefaultsOptions implements Filter {
 		private readonly defaultTimeout: number
 
