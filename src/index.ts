@@ -814,7 +814,6 @@ export namespace OzoneClient {
 			call.headers = {}
 		}
 		call.headers[name] = value
-		log.trace(`AddHeader called with name=${name} and value=${value}. Headers are now ${JSON.stringify(call.headers)}`)
 	}
 
 	export abstract class OzoneCredentials {
@@ -937,7 +936,6 @@ export namespace OzoneClient {
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			const authInfo = this.authProvider()
 			if (authInfo) {
-				log.trace(`SessionFilter : authInfo = ${authInfo}, class=${authInfo.constructor.name}, sessionId=${authInfo.sessionId}, sessionId=${authInfo['sessionId']}`)
 				addHeader(call, 'Ozone-Session-Id', authInfo.sessionId)
 			}
 			return filterChain.doFilter(call)
