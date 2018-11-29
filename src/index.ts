@@ -1,7 +1,7 @@
 import { fsm } from 'typescript-state-machine'
 import * as log4javascript from 'log4javascript'
 import { httpclient } from 'typescript-http-client'
-import { Item, SearchRequest, Query } from 'ozone-type'
+import { FromOzone, Item, Query, SearchRequest, UUID, State as MetaState } from 'ozone-type'
 
 export namespace OzoneClient {
 	import AssumeStateIsNot = fsm.AssumeStateIsNot
@@ -173,8 +173,6 @@ export namespace OzoneClient {
 		insertSessionIdInURL(url: string): string
 	}
 
-	export type UUID = string
-
 	export interface SearchResults<T extends Item> {
 		id?: number
 
@@ -187,17 +185,17 @@ export namespace OzoneClient {
 	}
 
 	export interface ItemClient<T extends Item> {
-		save(item: Partial<T>): Promise<T>
+		save(item: Partial<T>): Promise<FromOzone<T>>
 
-		saveAll(items: Partial<T>[]): Promise<T[]>
+		saveAll(items: Partial<T>[]): Promise<FromOzone<T>[]>
 
-		findOne(id: UUID): Promise<T | null>
+		findOne(id: UUID): Promise<FromOzone<T> | null>
 
-		findAll(): Promise<T[]>
+		findAll(): Promise<FromOzone<T>[]>
 
-		findAllByIds(ids: UUID[]): Promise<T[]>
+		findAllByIds(ids: UUID[]): Promise<FromOzone<T>[]>
 
-		search(searchRequest: SearchRequest): Promise<SearchResults<T>>
+		search(searchRequest: SearchRequest): Promise<SearchResults<FromOzone<T>>>
 
 		count(query?: Query): Promise<number>
 
@@ -754,45 +752,53 @@ export namespace OzoneClient {
 					return client.call<UUID[]>(request)
 				}
 
-				async findAll(): Promise<T[]> {
+				async findAll(): Promise<FromOzone<T>[]> {
 					const results = await this.search({
 						size: 10_000
 					})
 					return results.results || []
 				}
 
-				findAllByIds(ids: UUID[]): Promise<T[]> {
+				findAllByIds(ids: UUID[]): Promise<FromOzone<T>[]> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkGet`)
 						.setMethod('POST')
 						.setBody(ids)
-					return client.call<T[]>(request)
+					return client.call<FromOzone<T>[]>(request)
 				}
 
-				findOne(id: UUID): Promise<T | null> {
+				findOne(id: UUID): Promise<FromOzone<T> | null> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/${id}`)
 						.setMethod('GET')
-					return client.call<T>(request)
+					return client.call<FromOzone<T>>(request)
 				}
 
-				save(item: Partial<T>): Promise<T> {
+				async save(item: Partial<T>): Promise<FromOzone<T>> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}`)
 						.setMethod('POST')
 						.setBody(item)
-					return client.call<T>(request)
+					const savedItem = await client.call<FromOzone<T>>(request)
+					if (savedItem._meta.state === MetaState.ERROR) {
+						throw savedItem
+					}
+					return savedItem
 				}
 
-				saveAll(items: Partial<T>[]): Promise<T[]> {
+				async saveAll(items: Partial<T>[]): Promise<FromOzone<T>[]> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkSave`)
 						.setMethod('POST')
 						.setBody(items)
-					return client.call<T[]>(request)
+					const savedItems = await client.call<FromOzone<T>[]>(request)
+					if (savedItems.some(item => item._meta.state === MetaState.ERROR)) {
+						throw savedItems
+					}
+					return savedItems
 				}
 
-				search(searchRequest: SearchRequest): Promise<SearchResults<T>> {
+				search(searchRequest: SearchRequest): Promise<SearchResults<FromOzone<T>>> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/search`)
 						.setMethod('POST')
 						.setBody(searchRequest)
-					return client.call<SearchResults<T>>(request)
+					return client.call<SearchResults<FromOzone<T>>>(request)
 				}
 			}()
 		}
@@ -892,7 +898,7 @@ export namespace OzoneClient {
 			try {
 				const response = await filterChain.doFilter(call)
 				const principalId = response.headers['ozone-principal-id']
-				if (principalId && this.client.authInfo && principalId === this.client.authInfo.principalClass) {
+				if (principalId && this.client.authInfo && principalId === this.client.authInfo.principalId) {
 					this.sessionCheckCallBack(Date.now())
 				}
 				return response
