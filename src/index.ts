@@ -1,7 +1,7 @@
 import { fsm } from 'typescript-state-machine'
 import * as log4javascript from 'log4javascript'
 import { httpclient } from 'typescript-http-client'
-import { FromOzone, Item, Query, SearchRequest, UUID, State as MetaState } from 'ozone-type'
+import { FromOzone, Item, Query, SearchRequest, UUID, State as MetaState, Patch } from 'ozone-type'
 
 export namespace OzoneClient {
 	import AssumeStateIsNot = fsm.AssumeStateIsNot
@@ -185,9 +185,9 @@ export namespace OzoneClient {
 	}
 
 	export interface ItemClient<T extends Item> {
-		save(item: Partial<T>): Promise<FromOzone<T>>
+		save(item: Patch<T>): Promise<FromOzone<T>>
 
-		saveAll(items: Partial<T>[]): Promise<FromOzone<T>[]>
+		saveAll(items: Patch<T>[]): Promise<FromOzone<T>[]>
 
 		findOne(id: UUID): Promise<FromOzone<T> | null>
 
@@ -772,7 +772,7 @@ export namespace OzoneClient {
 					return client.call<FromOzone<T>>(request)
 				}
 
-				async save(item: Partial<T>): Promise<FromOzone<T>> {
+				async save(item: Patch<T>): Promise<FromOzone<T>> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}`)
 						.setMethod('POST')
 						.setBody(item)
@@ -783,7 +783,7 @@ export namespace OzoneClient {
 					return savedItem
 				}
 
-				async saveAll(items: Partial<T>[]): Promise<FromOzone<T>[]> {
+				async saveAll(items: Patch<T>[]): Promise<FromOzone<T>[]> {
 					const request = new Request(`${baseURL}/rest/v3/items/${typeIdentifier}/bulkSave`)
 						.setMethod('POST')
 						.setBody(items)
