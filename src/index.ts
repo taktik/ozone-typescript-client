@@ -377,9 +377,11 @@ export namespace OzoneClient {
 			try {
 				this._authInfo = undefined
 				this.log.debug('Authenticating')
+				this.log.debug(`this.config.ozoneURL ${this.config.ozoneURL}`)
 				this._authInfo = await this.config.ozoneCredentials!.authenticate(this.config.ozoneURL)
 				this.log.debug(`Authenticated with authInfo : ${this._authInfo}`)
 			} catch (e) {
+				this.log.debug(`DENIS//// ${e}`)
 				const response = e as Response<AuthInfo>
 				this.log.debug(`Authentication error : code ${response.status}`)
 				this._lastFailedLogin = e
@@ -535,7 +537,7 @@ export namespace OzoneClient {
 		@AssumeStateIs(states.NETWORK_OR_SERVER_ERROR)
 		private createAutoReAuthTimer() {
 			this._reAuthTimeout = window.setTimeout(() =>
-				(async() => {
+				(async () => {
 					try {
 						if (this.canGoToState(states.AUTHENTICATING)) {
 							const now = Date.now()
@@ -635,7 +637,7 @@ export namespace OzoneClient {
 		@AssumeStateIs(states.WS_CONNECTION_ERROR)
 		private createAutoReconnectWSTimer() {
 			const nextWSRetryInterval = this.nextWSRetryInterval()
-			this._wsReconnectTimeout = window.setTimeout(() => (async() => {
+			this._wsReconnectTimeout = window.setTimeout(() => (async () => {
 				if (this.canGoToState(states.WS_CONNECTING)) {
 					const now = Date.now()
 					if (this._lastWSReconnect !== 0) {
@@ -859,6 +861,7 @@ export namespace OzoneClient {
 	}
 
 	export class ItemByQueryCredentials extends OzoneCredentials {
+
 		constructor(readonly typeIdentifier: string,
 					readonly secret: string,
 					readonly query: object) {
@@ -867,6 +870,8 @@ export namespace OzoneClient {
 
 		async authenticate(ozoneURL: string): Promise<AuthInfo> {
 			const httpClient = newHttpClient()
+			// TODO:
+			// log.debug('coucou')
 			const request = new Request(`${ozoneURL}/rest/v3/authentication/login/item/${this.typeIdentifier}`)
 				.set({
 					method: 'POST',
@@ -875,6 +880,7 @@ export namespace OzoneClient {
 						secret: this.secret
 					}
 				})
+			// log.debug(`REQ: ${JSON.stringify(request)}`)
 			return (httpClient.call<AuthInfo>(request))
 		}
 	}
