@@ -379,9 +379,8 @@ export namespace OzoneClient {
 				this.log.debug('Authenticating')
 				this.log.debug(`this.config.ozoneURL ${this.config.ozoneURL}`)
 				this._authInfo = await this.config.ozoneCredentials!.authenticate(this.config.ozoneURL)
-				this.log.debug(`Authenticated with authInfo : ${this._authInfo}`)
+				this.log.debug(`Authenticated with authInfo : ${JSON.stringify(this._authInfo)}`)
 			} catch (e) {
-				this.log.debug(`DENIS//// ${e}`)
 				const response = e as Response<AuthInfo>
 				this.log.debug(`Authentication error : code ${response.status}`)
 				this._lastFailedLogin = e
@@ -860,6 +859,18 @@ export namespace OzoneClient {
 		}
 	}
 
+	export class SessionCredentials extends OzoneCredentials {
+		async authenticate(ozoneURL: string): Promise<AuthInfo> {
+			const httpClient = newHttpClient()
+			const request = new Request(`${ozoneURL}/rest/v3/authentication/current/session`)
+				.set({
+					method: 'GET',
+					withCredentials: true
+				})
+			return (httpClient.call<AuthInfo>(request))
+		}
+	}
+
 	export class ItemByQueryCredentials extends OzoneCredentials {
 
 		constructor(readonly typeIdentifier: string,
@@ -870,8 +881,6 @@ export namespace OzoneClient {
 
 		async authenticate(ozoneURL: string): Promise<AuthInfo> {
 			const httpClient = newHttpClient()
-			// TODO:
-			// log.debug('coucou')
 			const request = new Request(`${ozoneURL}/rest/v3/authentication/login/item/${this.typeIdentifier}`)
 				.set({
 					method: 'POST',
@@ -880,7 +889,6 @@ export namespace OzoneClient {
 						secret: this.secret
 					}
 				})
-			// log.debug(`REQ: ${JSON.stringify(request)}`)
 			return (httpClient.call<AuthInfo>(request))
 		}
 	}
