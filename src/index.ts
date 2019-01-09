@@ -18,6 +18,8 @@ export namespace OzoneClient {
 	import Request = httpclient.Request
 	import newHttpClient = httpclient.newHttpClient
 	import FilterChain = httpclient.FilterChain
+	import InstalledFilter = httpclient.InstalledFilter
+	import FilterCollection = httpclient.FilterCollection
 
 	const log = log4javascript.getLogger('ozone.client')
 	const DEFAULT_TIMEOUT = 5000
@@ -115,6 +117,20 @@ export namespace OzoneClient {
 		start(): Promise<void>
 
 		/*
+			The array of filters to apply to all HTTP calls
+			BEFORE this OzoneClient's own internal filters.
+			This array can be modified at any time to add/remove filters
+		 */
+		readonly preFilters: InstalledFilter[]
+
+		/*
+			The array of filters to apply to all HTTP calls
+			AFTER this OzoneClient's own internal filters.
+			This array can be modified at any time to add/remove filters
+		 */
+		readonly postFilters: InstalledFilter[]
+
+		/*
 			Update the WS URL.
 			The client will attempt to connect automatically to the new URL.
 		*/
@@ -167,7 +183,7 @@ export namespace OzoneClient {
 			Throws an error if there is no session available.
 			The given string may or may not contain the host part.
 			Example input strings :
-			"/rest/v3/blob" ->
+			"/rest/v3/blob"
 			"https://taktik.io/rest/v2/media/view/org.taktik.filetype.original/123"
 		*/
 		insertSessionIdInURL(url: string): string
@@ -256,6 +272,8 @@ export namespace OzoneClient {
 		private readonly _messageListeners: MessageListeners
 		private _lastSessionCheck: number = 0
 		private _httpClient: HttpClient
+		readonly preFilters: InstalledFilter[] = []
+		readonly postFilters: InstalledFilter[] = []
 
 		constructor(configuration: ClientConfiguration) {
 			super(Object.values(states), validTransitions, states.STOPPED)
@@ -720,12 +738,16 @@ export namespace OzoneClient {
 		}
 
 		private setupFilters() {
+			// Add pre-filters
+			this._httpClient.addFilter(new FilterCollection(this.preFilters))
 			// Try to auto-refresh the session if expired
 			this._httpClient.addFilter(new SessionRefreshFilter(this, lastCheck => this._lastSessionCheck = lastCheck))
 			// Add Ozone session header to all requests
 			this._httpClient.addFilter(new SessionFilter(() => this._authInfo))
 			// Set some sensible default to all requests
 			this._httpClient.addFilter(new DefaultsOptions(this._config.defaultTimeout || DEFAULT_TIMEOUT))
+			// Add post-filters
+			this._httpClient.addFilter(new FilterCollection(this.postFilters))
 		}
 
 		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T> {
@@ -979,4 +1001,5 @@ export namespace OzoneClient {
 			return filterChain.doFilter(request)
 		}
 	}
+
 }
