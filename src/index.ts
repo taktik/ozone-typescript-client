@@ -398,7 +398,11 @@ export namespace OzoneClient {
 				this.log.debug(`this.config.ozoneURL ${this.config.ozoneURL}`)
 				this._authInfo = await this.config.ozoneCredentials!.authenticate(this.config.ozoneURL)
 				this.log.debug(`Authenticated with authInfo : ${JSON.stringify(this._authInfo)}`)
+				this._lastFailedLogin = undefined
+				this._lastSessionCheck = Date.now()
+				this.setState(states.AUTHENTICATED)
 			} catch (e) {
+				// TODO AB What if e is not a Response?
 				const response = e as Response<AuthInfo>
 				this.log.debug(`Authentication error : code ${response.status}`)
 				this._lastFailedLogin = e
@@ -408,11 +412,7 @@ export namespace OzoneClient {
 				} else {
 					this.setState(states.NETWORK_OR_SERVER_ERROR)
 				}
-				throw e
 			}
-			this._lastFailedLogin = undefined
-			this._lastSessionCheck = Date.now()
-			this.setState(states.AUTHENTICATED)
 		}
 
 		private static terminateWSConnectionForcefully(ws: WebSocket) {
@@ -889,7 +889,18 @@ export namespace OzoneClient {
 					method: 'GET',
 					withCredentials: true
 				})
-			return (httpClient.call<AuthInfo>(request))
+			let authInfo = await (httpClient.call<AuthInfo>(request))
+			if (!authInfo) {
+				// The session is invalid
+				throw {
+					status : 403,
+					body : authInfo,
+					request : request,
+					headers : {},
+					statusText : 'Invalid session'
+				} as Response<AuthInfo>
+			}
+			return authInfo
 		}
 	}
 
