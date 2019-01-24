@@ -983,7 +983,6 @@ export namespace OzoneClient {
 
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			const authInfo = this.authProvider()
-			log.trace('SessionFilter : ' + (authInfo ? authInfo.sessionId : 'No session'))
 			if (authInfo) {
 				addHeader(call, 'Ozone-Session-Id', authInfo.sessionId)
 			}
