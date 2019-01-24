@@ -893,13 +893,7 @@ export namespace OzoneClient {
 			let authInfo = await (httpClient.call<AuthInfo>(request))
 			if (!authInfo) {
 				// The session is invalid
-				throw {
-					status : 403,
-					body : authInfo,
-					request : request,
-					headers : {},
-					statusText : 'Invalid session'
-				} as Response<AuthInfo>
+				throw new Response<AuthInfo>(request, 403, 'Invalid session', {}, authInfo)
 			}
 			return authInfo
 		}
@@ -989,6 +983,7 @@ export namespace OzoneClient {
 
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			const authInfo = this.authProvider()
+			log.trace('SessionFilter : ' + authInfo)
 			if (authInfo) {
 				addHeader(call, 'Ozone-Session-Id', authInfo.sessionId)
 			}
