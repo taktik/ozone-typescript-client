@@ -740,15 +740,15 @@ export namespace OzoneClient {
 
 		private setupFilters() {
 			// Add pre-filters
-			this._httpClient.addFilter(new FilterCollection(this.preFilters))
+			this._httpClient.addFilter(new FilterCollection(this.preFilters), 'pre-filters')
 			// Try to auto-refresh the session if expired
-			this._httpClient.addFilter(new SessionRefreshFilter(this, lastCheck => this._lastSessionCheck = lastCheck))
+			this._httpClient.addFilter(new SessionRefreshFilter(this, lastCheck => this._lastSessionCheck = lastCheck), 'session-refresh')
 			// Add Ozone session header to all requests
-			this._httpClient.addFilter(new SessionFilter(() => this._authInfo))
+			this._httpClient.addFilter(new SessionFilter(() => this._authInfo), 'session-filter')
 			// Set some sensible default to all requests
-			this._httpClient.addFilter(new DefaultsOptions(this._config.defaultTimeout || DEFAULT_TIMEOUT))
+			this._httpClient.addFilter(new DefaultsOptions(this._config.defaultTimeout || DEFAULT_TIMEOUT), 'default-options')
 			// Add post-filters
-			this._httpClient.addFilter(new FilterCollection(this.postFilters))
+			this._httpClient.addFilter(new FilterCollection(this.postFilters), 'post-filters')
 		}
 
 		itemClient<T extends Item>(typeIdentifier: string): ItemClient<T> {
@@ -983,7 +983,7 @@ export namespace OzoneClient {
 
 		async doFilter(call: Request, filterChain: FilterChain): Promise<Response<any>> {
 			const authInfo = this.authProvider()
-			log.trace('SessionFilter : ' + authInfo)
+			log.trace('SessionFilter : ' + (authInfo ? authInfo.sessionId : 'No session'))
 			if (authInfo) {
 				addHeader(call, 'Ozone-Session-Id', authInfo.sessionId)
 			}
