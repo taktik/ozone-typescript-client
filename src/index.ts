@@ -2,7 +2,6 @@ import { fsm } from 'typescript-state-machine'
 import * as log4javascript from 'log4javascript'
 import { httpclient } from 'typescript-http-client'
 import { FromOzone, Item, Query, SearchRequest, UUID, State as MetaState, Patch } from 'ozone-type'
-export * from 'typescript-http-client'
 
 export namespace OzoneClient {
 	import AssumeStateIsNot = fsm.AssumeStateIsNot
