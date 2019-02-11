@@ -440,7 +440,7 @@ export namespace OzoneClient {
 		connect(): Promise<void> {
 			// Destroy any existing WS
 			this.destroyWs()
-
+			log.info(`Connecting to ${this._config.webSocketsURL}`)
 			return new Promise<void>((resolve, reject) => {
 				/* FIXME AB Something is wrong here. The promise resolve or reject method should always be called but it is not the case */
 				const query = '?ozoneSessionId=' + this.authInfo!.sessionId
@@ -485,6 +485,7 @@ export namespace OzoneClient {
 				ws.onopen = () => {
 					let mustResolve = this._state === states.WS_CONNECTING
 					try {
+						log.info(`Connected to ${this._config.webSocketsURL}`)
 						this.setState(states.WS_CONNECTED)
 					} catch (e) {
 						mustResolve = false
@@ -615,7 +616,7 @@ export namespace OzoneClient {
 			// --> Problem. We close the socket and trigger onClose()
 			if (this._lastSentPing !== 0 && (this._lastSentPing - this._lastReceivedPong) > 20000) {
 				if (this._ws.readyState === this._ws.CONNECTING || this._ws.readyState === this._ws.OPEN) {
-					log.info('Ping timeout, closing connection')
+					log.warn('Ping timeout, closing connection')
 					OzoneClientImpl.terminateWSConnectionForcefully(this._ws)
 				}
 			} else {
