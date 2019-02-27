@@ -22,8 +22,8 @@
 	"homepage": "https://github.com/taktik/ozone-typescript-client#readme",
 	"dependencies": {
 		"log4javascript": "^1.4.15",
-		"typescript-state-machine": "^0.9.2",
-		"typescript-http-client": "^0.9.11",
+		"typescript-state-machine": "^0.9.3",
+		"typescript-http-client": "^0.9.13",
 		"ozone-type": "4.14.8"
 	},
 	"devDependencies": {
