@@ -857,7 +857,16 @@ export namespace OzoneClient {
 		}
 
 		authenticate(ozoneURL: string): Promise<AuthInfo> {
-			return Promise.reject('Not implemented')
+			const httpClient = newHttpClient()
+			const request = new Request(`${ozoneURL}/rest/v3/authentication/login/user`)
+				.set({
+					method: 'POST',
+					body: {
+						'username': this.username,
+						'password': this.password
+					}
+				})
+			return (httpClient.call<AuthInfo>(request))
 		}
 	}
 
